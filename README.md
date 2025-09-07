@@ -13,7 +13,7 @@ g++ bench_tex_upload.cpp -O2 -std=c++17 -lglfw -lGLEW -lGL -o bench_tex
 #### Windows (MSYS2/MinGW)
 First install dependencies:
 ```bash
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-glfw mingw-w64-x86_64-glew
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-glfw mingw-w64-ucrt-x86_64-glew
 ```
 
 Then build:
