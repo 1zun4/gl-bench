@@ -1,0 +1,131 @@
+name: Build OpenGL Benchmark
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          libglfw3-dev \
+          libglew-dev \
+          libgl1-mesa-dev \
+          xvfb
+          
+    - name: Build benchmark
+      run: |
+        g++ bench_tex_upload.cpp \
+          -O2 -std=c++17 \
+          -lglfw -lGLEW -lGL \
+          -o bench_tex_linux
+          
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bench_tex_linux
+        path: bench_tex_linux
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+
+    - name: Install dependencies (Homebrew)
+      run: |
+        brew update
+        brew install glfw glew
+
+    - name: Build benchmark
+      run: |
+        clang++ bench_tex_upload.cpp \
+          -std=c++17 -O2 \
+          -I/usr/local/include -I/opt/homebrew/include \
+          -L/usr/local/lib -L/opt/homebrew/lib \
+          -lglfw -lGLEW \
+          -framework OpenGL \
+          -o bench_tex_macos || \
+        clang++ bench_tex_upload.cpp \
+          -std=c++17 -O2 \
+          -lglfw -lGLEW -framework OpenGL \
+          -o bench_tex_macos
+
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bench_tex_macos
+        path: bench_tex_macos
+
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-glfw
+          mingw-w64-x86_64-glew
+          mingw-w64-x86_64-freeglut
+          
+    - name: Build benchmark
+      shell: msys2 {0}
+      run: |
+        g++ bench_tex_upload.cpp \
+          -O2 -std=c++17 \
+          -lglfw3 -lglew32 -lopengl32 -lgdi32 \
+          -o bench_tex_windows.exe
+          
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bench_tex_windows
+        path: bench_tex_windows.exe
+
+  create-release:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main')
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: build-${{ github.sha }}
+        name: Automated Build ${{ github.sha }}
+        draft: false
+        prerelease: true
+        files: |
+          bench_tex_linux/bench_tex_linux
+          bench_tex_macos/bench_tex_macos
+          bench_tex_windows/bench_tex_windows.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
